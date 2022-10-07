@@ -17,8 +17,16 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 # Discord messages are limited to 2000 characters. This also includes space for 6 '`' characters for a code block
 MAX_MESSAGE_LEN = 2000 - 6
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('alerte_ecowatt.main')
+# logger = logging.getLogger('alerte_ecowatt.main')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s [%(levelname)s] %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S", )
+# logging.setLevel(logging.DEBUG)
+# ch = logging.StreamHandler()
+# ch.setLevel(logging.DEBUG)
+# formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s",
+#                               "%Y-%m-%d %H:%M:%S")
+# ch.setFormatter(formatter)
+# logging.addHandler(ch)
 
 # Create the bot and specify to only look for messages starting with '#'
 intents = discord.Intents.default()
@@ -30,9 +38,9 @@ ecowatt_repository = EcoWattAPIRepository()
 
 @bot.event
 async def on_ready() -> None:
-    logger.info(f'{bot.user.name} est connecté dans les guildes suivantes :')
+    logging.info(f'{bot.user.name} est connecté dans les guildes suivantes :')
     for guild in bot.guilds:
-        logger.info(f' |  - {guild.name}')
+        logging.info(f'|   - {guild.name}')
     repeated_task.start()
 
 
@@ -40,7 +48,7 @@ async def on_ready() -> None:
 async def repeated_task() -> None:
     if datetime.now().hour == 18:
         message: Optional[str] = None
-        logger.info("Task started")
+        logging.info("Task started")
         try:
             signals: tuple[EcoWattDay] = ecowatt_repository.fetch_ecowatt_values()
             for signal in signals:
@@ -50,9 +58,9 @@ async def repeated_task() -> None:
             if message is not None:
                 for guild in guilds:
                     await guild.system_channel.send(message)
-                logger.info(f'Jour tendu trouvé, message envoyé à {len(guilds)} guildes :\n{message}')
+                logging.info(f'Jour tendu trouvé, message envoyé à {len(guilds)} guildes :\n{message}')
         except HTTPError:
-            logger.error('Erreur lors de la récupération des données')
+            logging.error('Erreur lors de la récupération des données')
 
 
 bot.run(TOKEN)
