@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Optional
 
 from dotenv import load_dotenv
 from oauthlib.oauth2 import BackendApplicationClient
@@ -19,16 +20,21 @@ class EcoWattAPIRepository:
     """A repository exposing common methods to interact with the EcoWatt API"""
 
     def __init__(self) -> None:
-        self.client = None
+        self.client: Optional[OAuth2Session] = None
 
     _base_url = "https://digital.iservices.rte-france.com"
 
     def refresh_oauth_client(self) -> None:
         client = BackendApplicationClient(client_id=RTE_APP_CLIENT_ID)
         session = OAuth2Session(client=client)
-        session.fetch_token(token_url=f"{self._base_url}/token/oauth/", auth=(RTE_APP_CLIENT_ID, RTE_APP_CLIENT_SECRET))
-        _LOGGER.debug(f"Fetched a token for RTE API")
-        self.client = session
+        try:
+            session.fetch_token(token_url=f"{self._base_url}/token/oauth/",
+                                auth=(RTE_APP_CLIENT_ID, RTE_APP_CLIENT_SECRET))
+            _LOGGER.debug(f"Fetched a token for RTE API")
+            self.client = session
+        except Exception as e:
+            _LOGGER.error(f"Error while fetching token for RTE API: {e}")
+            raise e
 
     def get_ecowatt_signals(self) -> dict[str, object]:
         """Fetch data from API endpoint.
@@ -39,9 +45,15 @@ class EcoWattAPIRepository:
         if self.client is None:
             _LOGGER.debug("No client, creating one")
             self.refresh_oauth_client()
-        response = self.client.get(f"{self._base_url}/open_api/ecowatt/v4/signals")
-        _LOGGER.debug(response.json())
-        return response.json()
+        try:
+            response = self.client.get(f"{self._base_url}/open_api/ecowatt/v4/signals")
+            response.raise_for_status()
+            _LOGGER.debug(f"Received data from API:")
+            _LOGGER.debug(response.json())
+            return response.json()
+        except Exception as e:
+            _LOGGER.error(f"Error while fetching data from API: {e}")
+            raise e
 
     def fetch_ecowatt_values(self) -> tuple[EcoWattDay]:
         response_json = self.get_ecowatt_signals()
