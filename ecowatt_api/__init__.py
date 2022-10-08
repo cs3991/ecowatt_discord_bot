@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timedelta
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -14,6 +15,7 @@ from ecowatt_api.ecowatt_day import EcoWattDay, EcoWattValue, EcoWattHour
 load_dotenv()
 RTE_APP_CLIENT_ID = os.getenv('RTE_APP_CLIENT_ID')
 RTE_APP_CLIENT_SECRET = os.getenv('RTE_APP_CLIENT_SECRET')
+UPDATE_INTERVAL_MINUTES = 16  # l'api n'accepte pas plus d'une requête toutes les 15 minutes
 
 
 class EcoWattAPIRepository:
@@ -21,6 +23,8 @@ class EcoWattAPIRepository:
 
     def __init__(self) -> None:
         self.client: Optional[OAuth2Session] = None
+        self.signals: Optional[tuple[EcoWattDay]] = None
+        self.last_update: Optional[datetime] = None
 
     _base_url = "https://digital.iservices.rte-france.com"
 
@@ -56,6 +60,14 @@ class EcoWattAPIRepository:
             raise e
 
     def fetch_ecowatt_values(self) -> tuple[EcoWattDay]:
-        response_json = self.get_ecowatt_signals()
-        signals = tuple(EcoWattDay.from_json(day) for day in response_json["signals"])
-        return signals
+        # si on a déjà récupéré les données et que la dernière récupération date d'il y a moins de 15 minutes, on ne les
+        # récupère pas à nouveau :
+        if self.signals is None or self.last_update is None or self.last_update.date() != datetime.now().date() - timedelta(
+                minutes=UPDATE_INTERVAL_MINUTES):
+            response_json = self.get_ecowatt_signals()
+            self.signals = tuple(EcoWattDay.from_json(day) for day in response_json["signals"])
+            self.last_update = datetime.now()
+            logging.info("Data fetched from API")
+        else:
+            logging.info("Using cached data")
+        return self.signals
