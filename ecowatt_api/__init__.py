@@ -66,7 +66,7 @@ class EcoWattAPIRepository:
         """Fetches the EcoWatt signals from the API and processes them into EcoWattDay objects"""
         # si on a déjà récupéré les données et que la dernière récupération date d'il y a moins de 15 minutes, on ne les
         # récupère pas à nouveau :
-        if self.signals is None or self.last_update is None or self.last_update.date() != datetime.now().date() - timedelta(
+        if self.signals is None or self.last_update is None or self.last_update < datetime.now() - timedelta(
                 minutes=UPDATE_INTERVAL_MINUTES):
             response_json = self.get_ecowatt_signals()
             self.signals = tuple(EcoWattDay.from_json(day) for day in response_json["signals"])
